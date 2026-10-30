@@ -62,13 +62,14 @@ const KEEP_GOING = flag('keep-going')
  *
  * Windows is the interesting one: `file-metadata` and `linux-attributes` are POSIX
  * concepts (mode bits, POSIX ACLs, `user.*` xattrs, inode identity, sparse allocation),
- * and `linux-shell` drives the POSIX bash rung — its own subject. On a POSIX host the
- * Windows-only cache preparation and windows-security suites skip on POSIX; `mount` may skip when no native worker can be resolved
+ * and `linux-shell` drives the POSIX bash rung — its own subject. `wsl-file-delegation`
+ * needs an installed WSL distribution, which a Windows host may not have. On a POSIX
+ * host the Windows-only cache preparation and windows-security suites skip on POSIX; `mount` may skip when no native worker can be resolved
  * there (component composition needs it).
  * A platform that skips anything else is a finding, not a footnote.
  */
 const ALLOWED_SKIPS = TARGET === 'win32-x64'
-  ? ['file-metadata', 'linux-attributes', 'linux-shell']
+  ? ['file-metadata', 'linux-attributes', 'linux-shell', 'wsl-file-delegation']
   : ['mount', 'result-storage-cache-prep', 'windows-security']
 
 /**

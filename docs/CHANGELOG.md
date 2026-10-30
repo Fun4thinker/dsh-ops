@@ -7,6 +7,9 @@ this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Delegate the read-only file tools (`glob`, `grep`, `read_files`) to the WSL distribution when the session cwd is a `\\wsl.localhost\<distro>\` or `\\wsl$\<distro>\` UNC path: scans and reads run inside Linux through data-driven `wsl.exe -d <distro> -e` commands (find / tar+base64) instead of the slow 9P protocol, with native-shaped results, UNC display paths, the credential fence, and a visible fallback to the existing native worker when the channel is unavailable.
+- 当会话 cwd 位于 `\\wsl.localhost\<distro>\` 或 `\\wsl$\<distro>\` UNC 路径时，只读文件工具（`glob`、`grep`、`read_files`）委托给 WSL 发行版执行：扫描与读取通过纯数据驱动的 `wsl.exe -d <distro> -e` 命令（find / tar+base64）在 Linux 内完成，绕过缓慢的 9P 协议；结果保持原生字段与 UNC 路径，保留凭据围栏，通道不可用时明确回退到既有原生 worker。
+
 - Add deterministic Windows replace refusal and sidecar-lock reader regressions from PR #128, with explicit cross-platform skips and an honest coverage map.
 - 提取 PR #128 的 Windows replace 拒绝与 sidecar 锁读取确定性回归，准确接入跨平台 skip，并记录覆盖与未测范围。
 
