@@ -18,6 +18,7 @@ import { resolveWorker } from '../ptc/runtime.js'
 import { FILE_MUTATIONS } from '../policy.js'
 import { normalizeArguments } from './contract.js'
 import { resolveReadFiles } from './read-files.js'
+import { delegateWslFileTool, WSL_DELEGATED_TOOLS } from './wsl-delegate.js'
 import { withCallBudget, CallBudgetError } from '../kernel/call-budget.js'
 import { withResultSession } from '../kernel/result-lifecycle.js'
 import { resultStorage } from '../kernel/result-storage.js'
@@ -196,6 +197,26 @@ async function invokeTrusted(ctx: Context, file: string, tool: string, args: unk
       const required = mutates ? requiredMode(current) : undefined
       if (mutates && (current.mode === 'read-only' || (current.mode === 'workspace-write' && required === 'danger-full-access'))) return denied(current, tool, required, 'Authority changed during preparation; no files were changed.')
       return authorityChanged(current, tool)
+    }
+    // WSL delegation: when the trusted root lives under \\wsl.localhost\<distro>\,
+    // read-only scans and reads run inside the distribution instead of through
+    // 9P. Mutating tools keep the native worker unconditionally. The channel
+    // resolves to undefined when the workspace is not delegable or the channel
+    // failed, and the native worker below stays the only execution path — the
+    // slower-but-correct fallback, never a silent degradation.
+    if (!mutates && (WSL_DELEGATED_TOOLS as readonly string[]).includes(tool)) {
+      const delegated = await delegateWslFileTool({
+        subprocess, tool, args: workerArgs, cwd: trustedPath(cwd), scope: String(session.id), denyRoots, signal,
+      })
+      if (delegated !== undefined) {
+        if (reads && Array.isArray(delegated.items)) {
+          for (const [index, item] of (delegated.items as unknown[]).entries()) {
+            if (record(item) && item.status === 'completed') emitObserved(ctx, readObservations[index], exec)
+          }
+        }
+        const normalized = normalizeNativeDenial(delegated, policy, tool, 'workspace-write')
+        return { ...normalized, sandbox: { mode: policy.mode, enforcement: 'policy', boundary: 'trusted-native-file-operations' } }
+      }
     }
     const handle = subprocess.spawn({ argv, cwd, stdio: { stdin: { data: input }, stdout: { maxBytes: envelope.budget.maxBytes }, stderr: { maxBytes: 16 * 1024 } }, graceMs: 1000, signal })
     spawned = true
